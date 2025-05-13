@@ -250,9 +250,6 @@ main(void)
       
   }
 
-  
-
-
   scvWrite(fd, bmp.bytes.base, bmp.bytes.len, &error);
   if (error.tag) {
     scvClose(fd);
