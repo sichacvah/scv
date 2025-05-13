@@ -30,4 +30,14 @@ struct SCVColor {
 };
 
 
+// TODO(sichirc): 4 bytes per pixel
+typedef struct SCVBitmap SCVBitmap;
+struct SCVBitmap {
+  void  *data;
+  u32   width;
+  u32   height;
+  u32   pitch;
+};
+
+
 #endif

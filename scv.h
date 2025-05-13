@@ -1,7 +1,7 @@
 #ifndef SCV
 #define SCV
 
-#include <fcntl.h>
+#define unused(a) (void)(a)
 
 /*
  * headers needed: 
@@ -37,8 +37,8 @@ enum SCVErrorType {
   SCV_FONT_INVALID,
 };
 
-// #define scvBreakpoint __builtin_debugtrap()
-#define scvBreakpoint __asm__ volatile("int $0x03")
+#define scvBreakpoint __builtin_debugtrap()
+// #define scvBreakpoint __asm__ volatile("int $0x03")
 #define scvMin(a, b) ((a) < (b) ? (a) : (b))
 #define scvMax(a, b) ((a) > (b) ? (a) : (b))
 #define scvAssert(expr)                         \
@@ -97,7 +97,7 @@ typedef	long word;
 #define	wmask	(wsize - 1)
 
 #ifndef strlen
-u64
+unsigned long
 strlen(const char * str)
 {
   char *s;
@@ -551,7 +551,7 @@ scvBindIPV4(int s, struct sockaddr *addr, int addrlen, SCVError *err)
 }
 
 i32
-scvAccept(int s, struct sockaddr *addr, int addrlen, SCVError *err)
+scvAccept(int s, struct sockaddr *addr, int *addrlen, SCVError *err)
 {
   SCVSyscallResult r = scvSyscall(SYS_accept, (uptr)s, (uptr)addr, (uptr)addrlen);
   scvErrorSet(err, "accept failed with code", r.err);

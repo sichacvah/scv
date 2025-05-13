@@ -11,7 +11,6 @@ struct SCVHTTPHeader {
   SCVString value;
 };
 
-typedef enum SCV_HTTP_METHOD SCV_HTTP_METHOD;
 enum SCV_HTTP_METHOD {
   SCV_HTTP_UNKNOWN = 0,
   SCV_HTTP_GET,
@@ -20,10 +19,11 @@ enum SCV_HTTP_METHOD {
   SCV_HTTP_PATCH,
   SCV_HTTP_DELETE
 };
+typedef enum SCV_HTTP_METHOD SCV_HTTP_METHOD;
 
 typedef struct SCVHTTPRequest SCVHTTPRequest;
 struct SCVHTTPRequest {
-  SCVHeader headers[MAX_HEADERS_COUNT];
+  SCVHTTPHeader headers[MAX_HEADERS_COUNT];
   SCVSlice bytes;
   SCVSlice body; 
   SCVString uri;
@@ -52,7 +52,7 @@ scvHTTPOffsetByMethod(SCV_HTTP_METHOD method)
 }
 
 SCV_HTTP_METHOD
-scvHTTPMethod(SCVSlice bytes, i32 *offset)
+scvHTTPMethod(SCVSlice bytes, u32 *offset)
 {
   scvAssert(bytes.len > 7);
   scvAssert(offset);
@@ -79,13 +79,13 @@ scvHTTPMethod(SCVSlice bytes, i32 *offset)
 i32
 scvFindSpace(SCVSlice bytes, i32 m)
 {
-  i32 n = -1;
+  i32 n;
   byte *base = (byte *)bytes.base;
-  i32 count = scvMin(m, bytes.len - 1);
+  i32 count = scvMin(m, (i32)bytes.len - 1);
   for (i32 i = 0; i < count; ++i) {
     if (base[i] == ' ') {
       n = i + 1;
-      break;
+      return n;
     }
   }
 
@@ -97,7 +97,7 @@ scvFindEndLine(SCVSlice bytes, i32 m)
 {
   i32 n = -1;
   byte *base = (byte *)bytes.base;
-  i32 count = scvMin(bytes.len - 1, m);
+  i32 count = scvMin((i32)bytes.len - 1, m);
   for (i32 i = 0; i < count - 1; i += 2) {
     if (base[i] == '\r' && base[i + 1] == '\n') {
       return i + 2;
@@ -112,7 +112,7 @@ scvHTTPFindHeaderSeparator(SCVSlice bytes, i32 m)
 {
   i32 n = -1;
   byte *base = (byte *)bytes.base;
-  i32 count = scvMin(bytes.len - 1, m);
+  i32 count = scvMin((i32)(bytes.len - 1), m);
   for (i32 i = 0; i < count; i += 2) {
     if (base[i] == ':' && base[i + 1] == ' ') {
       return i + 1;
@@ -124,9 +124,9 @@ scvHTTPFindHeaderSeparator(SCVSlice bytes, i32 m)
 u32
 scvHTTPParseMethod(SCVHTTPRequest *req)
 {
-  u32 offset;
+  u32 offset = 0;
   scvAssert(req); 
-  req->method = scvHTTPMethod(bytes, &offset);
+  req->method = scvHTTPMethod(req->bytes, &offset);
   if (req->method == SCV_HTTP_UNKNOWN) {
     req->isValid = false;
   }
@@ -173,18 +173,19 @@ scvHTTPExtractVersion(SCVHTTPRequest *req, u32 offset)
 u32
 scvHTTPExtractHeaderKey(SCVHTTPRequest *req, u32 offset, u32 hid)
 {
+  SCVHTTPHeader *header;
   i32 n = 0;
   scvAssert(req);
   scvAssert(req->bytes.len > offset);
   scvAssert(hid < MAX_HEADERS_COUNT);
   SCVSlice bytes = scvSliceLeft(req->bytes, offset);
-  SCVHeader *header = req->headers + hid;
+  header = req->headers + hid;
   n = scvHTTPFindHeaderSeparator(bytes, MAX_HEADER_SIZE);
   if (n < 3 && n < MAX_HEADERS_COUNT - 4) {
     req->isValid = false;
     return 0;
   }
-  header->key = scvSliceRight(bytes, n - 2);
+  header->key = scvString(scvSliceRight(bytes, n - 2));
   return n;
 }
 
@@ -192,12 +193,13 @@ scvHTTPExtractHeaderKey(SCVHTTPRequest *req, u32 offset, u32 hid)
 u32
 scvHTTPExtractHeaderValue(SCVHTTPRequest *req, u32 offset, u32 hid)
 {
+  SCVHTTPHeader *header;
   i32 n = 0;
   scvAssert(req);
   scvAssert(req->bytes.len > offset);
   scvAssert(hid < MAX_HEADERS_COUNT);
   SCVSlice bytes = scvSliceLeft(req->bytes, offset);
-  SCVHeader *header = req->headers + hid;
+  header = req->headers + hid;
   n = scvHTTPFindHeaderSeparator(bytes, MAX_HEADER_SIZE - header->key.len);
   if (n < 3) {
     req->isValid = false;
@@ -214,7 +216,7 @@ scvHTTPParseRequest(SCVHTTPRequest *req, SCVSlice bytes)
   memset(req, 0, sizeof(SCVHTTPRequest));
   req->isValid = true;
   u32 n = 0;
-  req.bytes = bytes; 
+  req->bytes = bytes; 
 
   n = scvHTTPParseMethod(req);
   if (!req->isValid) {
