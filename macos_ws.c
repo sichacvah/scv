@@ -95,7 +95,7 @@ scvSyscall6(int trap, uptr a1, uptr a2, uptr a3, uptr a4, uptr a5, uptr a6)
 #define AF_INET  0x2
 #define INADDR_ANY 0x0
 */
-  int 
+int 
 main(void)
 {
   i32 server, client;

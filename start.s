@@ -12,7 +12,8 @@
            same as "and rsp,0xfffffffffffffff0" because negative
            numbers are represented as
            max_unsigned_value + 1 - abs(negative_num) */
-        and rsp,-16
+        //and rsp,-16
+        lea rdx, [rsp + rdi * 8 + 8]
         call main
         mov rdi,rax
         mov rax,60

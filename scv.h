@@ -299,7 +299,7 @@ scvIsStringsEquals(SCVString s1, SCVString s2)
     return false;
   }
 
-  return strncmp((char *)s1.base, (char *)s2.base, s1.len);
+  return strncmp((char *)s1.base, (char *)s2.base, s1.len) == 0;
 }
 
 SCVString
@@ -531,6 +531,29 @@ scvWrite(int fd, void *ptr, u64 size, SCVError *err)
 {
   SCVSyscallResult r = scvSyscall(SYS_write, fd, (uptr)ptr, (uptr)size);
   scvErrorSet(err, "write failed with code", r.err);
+  return r.r1;
+}
+
+typedef struct SCVPollFd SCVPollFd;
+struct SCVPollFd {
+  i32 fd;
+  i16 events;
+  i16 revents;
+};
+
+i32
+scvPoll(SCVPollFd *fds, u32 nfds, u64 tms, SCVError *err)
+{
+  SCVSyscallResult r = scvSyscall(SYS_poll, (uptr)fds, (uptr)nfds, (uptr)tms);
+  scvErrorSet(err, "poll failed with code", r.err);
+  return r.r1;
+}
+
+i32
+scvSetSockopt(i32 fd, i32 level, i32 optname, void *optval, i32 optlen, SCVError *err)
+{
+  SCVSyscallResult r = scvSyscall6(SYS_setsockopt, (uptr)fd, (uptr)level, (uptr)optname, (uptr)optval, (uptr)optlen, 0);
+  scvErrorSet(err, "setsockopt failed with code", r.err);
   return r.r1;
 }
 
@@ -930,6 +953,14 @@ scvArenaInit(SCVArena *arena, SCVError *err)
   arena->size = 0;
   arena->currOffset = 0;
   arena->prevOffset = 0;
+}
+
+void
+scvTmpArenaInit(SCVArena *arena, byte *backingBuffer, u64 size)
+{
+  scvArenaInit(arena, nil);
+  arena->buf = backingBuffer;
+  arena->size = size;
 }
 
 void*

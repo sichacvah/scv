@@ -6,11 +6,15 @@
 #include <time.h>
 #include <sys/time.h>
 #include <sys/stat.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <fcntl.h>
 #define PAGE_SIZE 4096
 #include "scv.h"
 #include "scv_font.h"
 #include "scv_geom.h"
-#include "scv_bitmap.c"
+// #include "scv_bitmap.c"
+#include "scv_x11.h"
 
 u64
 scvCntVct(void)
@@ -139,7 +143,7 @@ scvSyscall6(int trap, uptr a1, uptr a2, uptr a3, uptr a4, uptr a5, uptr a6)
 
 
 SCVSlice
-_scvLoadFile(SCVString pathname, SCVError *error)
+scvLoadWholeFile(SCVString pathname, SCVError *error)
 { 
   struct stat filestat;
   i64 fd = 0;
@@ -173,91 +177,61 @@ struct SCVByteSlice {
   u64 cap;
 };
 
-int 
-main(void)
+static char **env;
+
+SCVString
+scvGetValue(SCVString str, SCVString key)
 {
-  SCVError error = {0};
-  SCVSlice bytes = scvAllocBMP(24, 24, &error);
-  if (error.tag) {
-    scvPrintCString("ERROR");
+  SCVString value = {0};
+  if (key.base == str.base && str.len > key.len) {
+    value.base = str.base + key.len + 1;
+    value.len  = str.len - key.len - 1;
   }
 
-  SCVBMP bmp = scvCreateBMP(bytes, 24, 24);
-  scvPrint("allocated = ");
-  scvPrintU64(bmp.bytes.len);
+  return value;
+}
 
-  int fd = scvOpen(scvUnsafeCString("./test.bmp"), O_RDWR, &error);
-  if (error.tag) {
-    scvClose(fd);
-    scvPrintCString("can't open file");
-    return 1;
-  }
+SCVString
+scvGetKey(SCVString str)
+{
+  SCVString key = {0};
 
-
-  u32 w = scvBMPWidth(&bmp);
-  scvPrint("WIDTH = ");
-  scvPrintU64((u64)w);
-  u32 h = scvBMPHeight(&bmp);
-  scvPrint("HEIGHT = ");
-  scvPrintU64((u64)h);
-
-  for (u32 y = 0; y < 24; y++) {
-    for (u32 x = 0; x < 24; x++) {
-      scvColorPixel(&bmp, x, y, (SCVColor){
-        .r = 255,
-        .g = 0,
-        .b = 0,
-        .a = 255
-      });    
+  for (u64 i = 0; i < str.len; i++) {
+    if (str.base[i] == '=') {
+      key.base = str.base;
+      key.len  = i;
+      break;
     }
   }
 
-  for (u32 i = 0; i < 24; i++) {
-      scvColorPixel(&bmp, i, i, (SCVColor){
-        .r = 0,
-        .g = 0,
-        .b = 255,
-        .a = 255
-      });
-      
-      if ((i + 1) < 24) {
-        scvColorPixel(&bmp, i + 1, i, (SCVColor){
-          .r = 0,
-          .g = 0,
-          .b = 255,
-          .a = 255
-        });
-      }
+  return key;
+}
 
-      if ((i + 2) < 24) {
-        scvColorPixel(&bmp, i + 2, i, (SCVColor){
-          .r = 0,
-          .g = 0,
-          .b = 255,
-          .a = 255
-        });
-      }
-      
-
-      if ((i + 3) < 24) {
-        scvColorPixel(&bmp, i + 3, i, (SCVColor){
-          .r = 0,
-          .g = 0,
-          .b = 255,
-          .a = 255
-        });
-      }
-      
+SCVString
+scvFindEnvValue(SCVString key)
+{
+  unused(key);
+  SCVString value = {0};
+  for (char **e = env; *e != nil; e++) {
+    SCVString line = scvUnsafeCString(*e);
+    SCVString currentKey  = scvGetKey(line);
+    if (scvIsStringsEquals(key, currentKey)) {
+      value = scvGetValue(line, currentKey);
+      break;
+    }
   }
 
-  scvWrite(fd, bmp.bytes.base, bmp.bytes.len, &error);
-  if (error.tag) {
-    scvClose(fd);
-    scvPrintCString("can't write file");
-    return 1;
-  }
- 
-  scvClose(fd);
+  return value;
+}
+
+int 
+main(int argc, char **argv, char **envp)
+{
+  env = envp;
+  unused(argc);
+  unused(argv);
+  unused(envp);
+  scvPrintString(scvFindEnvValue(scvUnsafeCString("XAUTHORITY")));
   return 0;
 }
 

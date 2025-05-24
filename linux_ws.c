@@ -174,6 +174,60 @@ struct SCVByteSlice {
   u64 cap;
 };
 
+i32
+getListenerSocket(SCVError *error)
+{
+  SCVError error;
+  i32 listener;
+  i32 yes = 1;
+  
+  struct sockaddr_in hostaddr;
+
+  listener = scvSocket(PF_INET, SOCK_STREAM, 0, &error);
+  if (error->tag) {
+    goto error1;
+  }
+
+  scvSetSockopt(listener, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
+
+  hostaddr.sin_family = AF_INET;
+  hostaddr.sin_port   = scvHtons(8888);
+  hostaddr.sin_addr.s_addr = INADDR_ANY;
+
+  scvBindIPV4(listener, (struct sockaddr *)&hostaddr, sizeof(hostaddr), &error);
+  if (error->tag) {
+    goto handle_error;
+  }
+
+  scvListen(listener, 128, &error);
+  if (error->tag) {
+    goto handle_error;
+  }
+
+  return listener;
+
+handle_error:
+  scvClose(listener);
+error1:
+  return -1;
+}
+
+
+i32
+main(void)
+{
+#define FD_SIZE 32
+
+  i32 listener;
+  i32 newfd;
+  i32 fdcount;
+  i32 fdsize = FD_SIZE;
+  SCVPollFd pfds[FD_SIZE];
+
+
+
+}
+
 /*
 #define PF_INET 0x2
 #define SOCK_STREAM 0x1
@@ -182,7 +236,7 @@ struct SCVByteSlice {
 #define INADDR_ANY 0x0
 */
 int 
-main(void)
+_main(void)
 {
   i32 server, client;
   struct sockaddr_in hostaddr, clientaddr;
@@ -212,10 +266,10 @@ main(void)
     goto error;
   }
 
+  i32 clientaddrlen = sizeof(clientaddr);
+
   while (true) {  
-    client = scvAccept(server, (struct sockaddr *)&clientaddr, sizeof(clientaddr), &error);
-    scvPrint("client = ");
-    scvPrintU64((u64)client);
+    client = scvAccept(server, (struct sockaddr *)&clientaddr, &clientaddrlen, &error);
     if (error.tag) {
       scvPrintError(&error);
       continue;
